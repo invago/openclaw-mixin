@@ -8,6 +8,9 @@ const OpenclawGatewayClient = require('./gateway-client');
 const MixinAPIClient = require('./services/MixinAPIClient');
 const Message = require('./models/Message');
 const { config } = require('./config');
+const { securityManager } = require('./security');
+const { createLogger } = require('./logger');
+const { MessageFilter } = require('./message-filter');
 
 class MixinChannel {
  constructor(options = {}) {
