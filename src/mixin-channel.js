@@ -11,6 +11,8 @@ const { config } = require('./config');
 const { securityManager } = require('./security');
 const { createLogger } = require('./logger');
 const { MessageFilter } = require('./message-filter');
+const { getAuthManager } = require('./auth-manager');
+const { CommandHandler } = require('./command-handler');
 
 class MixinChannel {
  constructor(options = {}) {
