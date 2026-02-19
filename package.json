@@ -51,7 +51,8 @@
  "dotenv": "^16.3.0",
  "cors": "^2.8.5",
  "morgan": "^1.10.0",
- "uuid": "^9.0.0"
+ "uuid": "^9.0.0",
+ "ws": "^8.14.0"
  },
  "devDependencies": {
  "nodemon": "^3.0.0",
@@ -59,9 +60,6 @@
  "eslint": "^8.0.0",
  "eslint-config-airbnb-base": "^15.0.0",
  "eslint-plugin-import": "^2.25.0"
- },
- "peerDependencies": {
- "@clawd/core": "^1.0.0"
  },
  "files": [
  "index.js",

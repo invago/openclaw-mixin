@@ -1,18 +1,39 @@
-# Openclaw Mixin插件
+# Openclaw Mixin通道插件
 
-将Openclaw AI助手接入Mixin Messenger平台的插件，实现类似飞书机器人的功能。
+作为**Openclaw的通道适配器**，将Mixin Messenger集成到Openclaw中。用户可以通过Mixin Messenger与Openclaw AI助手对话，就像使用飞书、Telegram等其他通道一样。
+
+##架构说明
+
+本插件作为**消息通道桥梁**，工作流程如下：
+
+```
+Mixin用户发送消息
+    ↓
+Mixin服务器 → Webhook →本插件
+    ↓
+通过WebSocket转发给Openclaw Gateway
+    ↓
+Openclaw Agent处理AI逻辑
+    ↓
+Agent回复通过WebSocket返回
+    ↓
+本插件发送回复到Mixin
+    ↓
+Mixin用户收到AI回复
+```
+
+**注意**：本插件不处理AI逻辑，只负责消息传递。所有AI处理能力由Openclaw提供。
 
 ##特性
 
-- ✅接收Mixin Messenger消息
-- ✅文本消息处理
-- ✅图片消息处理
-- ✅会话管理（Redis支持）
-- ✅命令系统（/help, /clear, /status等）
-- ✅健康检查端点
-- 🔄 Openclaw API集成（开发中）
-- 🔄用户认证系统
-- 🔄多租户支持
+- ✅作为Openclaw通道适配器运行
+- ✅接收Mixin Messenger消息（Webhook）
+- ✅通过WebSocket与Openclaw Gateway通信
+- ✅支持文本、图片、文件等多种消息类型
+- ✅自动重连和错误处理
+- ✅健康检查和状态监控
+- 🔄用户认证系统（待开发）
+- 🔄多租户支持（待开发）
 
 ##安装方式
 
