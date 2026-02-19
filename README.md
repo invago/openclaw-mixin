@@ -48,7 +48,7 @@ Mixin用户收到AI回复
 npm install openclaw-mixin
 
 #或使用GitHub直接安装
-npm install yourusername/openclaw-mixin
+npm install invago/openclaw-mixin
 ```
 
 ###2.独立运行模式

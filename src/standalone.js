@@ -76,7 +76,7 @@ class StandaloneServer {
  health: '/health',
  info: '/info',
  },
- documentation: 'https://github.com/yourusername/openclaw-mixin',
+ documentation: 'https://github.com/invago/openclaw-mixin',
  });
  });
 
@@ -254,7 +254,7 @@ class StandaloneServer {
  description: '将Openclaw AI助手接入Mixin Messenger平台',
  author: 'Your Name',
  license: 'MIT',
- homepage: 'https://github.com/yourusername/openclaw-mixin',
+ homepage: 'https://github.com/invago/openclaw-mixin',
  config: {
  appId: config.mixin.appId,
  sessionId: config.mixin.sessionId,

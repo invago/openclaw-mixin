@@ -12,7 +12,7 @@ module.exports = {
  version: '1.0.0',
  author: 'Your Name',
  license: 'MIT',
- homepage: 'https://github.com/yourusername/openclaw-mixin',
+ homepage: 'https://github.com/invago/openclaw-mixin',
  icon: 'https://mixin.one/assets/logo.png',
  category: 'messaging',
  tags: ['mixin', 'messenger', 'chatbot', 'ai'],
