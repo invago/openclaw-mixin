@@ -7,13 +7,25 @@
 ### 方式一：通过 npm 安装（推荐）
 
 ```bash
-npm install @openclaw/channel-mixin
+npm install openclaw-mixin-channel
+```
+
+或者
+
+```bash
+npm install invago/openclaw-mixin
 ```
 
 ### 方式二：本地安装（开发调试）
 
 ```bash
 openclaw plugins install ./extensions/mixin
+```
+
+### 方式三：从 GitHub 安装
+
+```bash
+npm install invago/openclaw-mixin
 ```
 
 ## 配置方式
