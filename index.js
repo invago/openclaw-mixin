@@ -19,6 +19,24 @@ const MixinChannel = require('./src/mixin-channel');
 let channel = null;
 
 /**
+ * Openclaw 插件注册函数
+ * 当通过 openclaw plugins install 安装时调用
+ */
+async function register(config) {
+  console.log('[mixin] 注册 Mixin 通道插件...');
+
+  const options = {
+    gatewayUrl: config?.gatewayUrl || process.env.OPENCLAW_GATEWAY_URL || 'ws://127.0.0.1:18789',
+    appId: config?.appId || process.env.MIXIN_APP_ID,
+    sessionId: config?.sessionId || process.env.MIXIN_SESSION_ID,
+    privateKey: config?.privateKey || process.env.MIXIN_SESSION_PRIVATE_KEY,
+  };
+
+  channel = new MixinChannel(options);
+  return channel;
+}
+
+/**
  *启动服务
  */
 async function start() {
@@ -48,7 +66,7 @@ async function start() {
 
  try {
  //创建并启动通道
- channel = new MixinChannelSimple({
+ channel = new MixinChannel({
  gatewayUrl: process.env.OPENCLAW_GATEWAY_URL || 'ws://127.0.0.1:18789',
  });
 
@@ -130,4 +148,4 @@ if (require.main === module) {
  });
 }
 
-module.exports = { MixinChannelSimple };
+module.exports = { MixinChannel, register };

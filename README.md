@@ -1,83 +1,139 @@
-# Openclaw Mixin插件
+# Openclaw Mixin 插件
 
-将Mixin Messenger集成到Openclaw的通道插件。
+将 Mixin Messenger 集成到 Openclaw 的通道插件，类似官方 Feishu 频道插件。
 
-##架构
+## 安装方式
 
-```
-Mixin用户发送消息
- ↓
-Mixin Blaze服务器
- ↓
-WebSocket长连接 →本插件
- ↓
-转发给Openclaw Gateway
- ↓
-Openclaw Agent处理AI逻辑
- ↓
-Agent回复通过WebSocket返回
- ↓
-本插件发送回复到Mixin
- ↓
-Mixin用户收到AI回复
-```
-
-##安装
-
-在Openclaw项目目录中：
+### 方式一：通过 npm 安装（推荐）
 
 ```bash
-npm install invago/openclaw-mixin
+npm install @openclaw/channel-mixin
 ```
 
-##配置
-
-创建 `.env`文件：
+### 方式二：本地安装（开发调试）
 
 ```bash
-# Mixin应用配置（从Mixin开发者平台获取）
-MIXIN_APP_ID=your_app_id
-MIXIN_SESSION_ID=your_session_id
-MIXIN_SESSION_PRIVATE_KEY=your_private_key_base64
-
-# Openclaw Gateway地址
-OPENCLAW_GATEWAY_URL=ws://127.0.0.1:18789
-
-#管理员用户ID（可选，首次运行后从日志获取）
-OPENCLAW_ADMIN_USER_IDS=
+openclaw plugins install ./extensions/mixin
 ```
 
-##启动
+## 配置方式
+
+### 方式一：通过 Openclaw CLI 配置（推荐）
 
 ```bash
-npm start
+# 交互式配置（自动引导）
+openclaw channels add
+
+# 或手动设置配置项
+openclaw config set channels.mixin.enabled true
+openclaw config set channels.mixin.appId "cli_xxx"
+openclaw config set channels.mixin.sessionId "xxx"
+openclaw config set channels.mixin.privateKey "xxx"
 ```
 
-##使用
+### 方式二：直接编辑配置文件
 
-1.给Mixin机器人发送 `/start`
-2.输入配对码完成认证
-3.直接发送消息与AI对话
+编辑 `~/.openclaw/openclaw.json`：
 
-###命令列表
+```json5
+{
+  channels: {
+    mixin: {
+      enabled: true,
+      appId: "your_app_id",
+      sessionId: "your_session_id",
+      privateKey: "your_private_key_base64"
+    }
+  }
+}
+```
 
-- `/start` -开始认证
-- `/auth <code>` -提交配对码
-- `/status` -查看状态
-- `/help` -显示帮助
+### 方式三：使用环境变量
+
+```bash
+export MIXIN_APP_ID="your_app_id"
+export MIXIN_SESSION_ID="your_session_id"
+export MIXIN_SESSION_PRIVATE_KEY="your_private_key_base64"
+export OPENCLAW_GATEWAY_URL="ws://127.0.0.1:18789"
+```
+
+## 启动服务
+
+```bash
+# 启动 Openclaw Gateway（包含所有已启用的频道）
+openclaw gateway
+
+# 查看运行状态
+openclaw gateway status
+```
+
+## 使用流程
+
+### 1. 首次使用认证
+
+1. 在 Mixin Messenger 中给机器人发送 `/start`
+2. 机器人返回配对码
+3. 在 Mixin 中输入配对码完成认证
+
+### 2. 与 AI 对话
+
+认证后，直接发送消息即可与 AI 对话。
+
+### 命令列表
+
+| 命令 | 说明 |
+|------|------|
+| `/start` | 开始认证 |
+| `/auth <code>` | 提交配对码 |
+| `/status` | 查看状态 |
+| `/help` | 显示帮助 |
 
 **管理员命令：**
-- `/admin add <userId>` -添加管理员
-- `/users` -查看用户列表
-- `/stats` -查看统计
 
-##特性
+| 命令 | 说明 |
+|------|------|
+| `/admin add <userId>` | 添加管理员 |
+| `/users` | 查看用户列表 |
+| `/stats` | 查看统计 |
 
-- WebSocket长连接接收消息
--用户认证与权限管理
--群组低打扰模式
--自动重连和离线消息处理
+## 架构说明
 
-##许可证
+```
+Mixin 用户发送消息
+     ↓
+Mixin Blaze 服务器（WebSocket）
+     ↓
+本插件接收消息
+     ↓
+转发给 Openclaw Gateway
+     ↓
+Openclaw Agent 处理 AI 逻辑
+     ↓
+Agent 回复通过 WebSocket 返回
+     ↓
+本插件发送回复到 Mixin
+     ↓
+Mixin 用户收到 AI 回复
+```
+
+## 特性
+
+- **WebSocket 长连接**：实时接收消息，无需 HTTP Webhook 配置
+- **用户认证与权限管理**：支持配对码认证和管理员权限
+- **群组低打扰模式**：仅在@机器人时响应群聊消息
+- **自动重连**：断线自动重连，支持离线消息处理
+- **消息类型支持**：支持文本、图片等消息类型
+
+## 开发调试
+
+```bash
+# 本地开发模式
+npm run dev
+
+# 运行测试
+npm test
+```
+
+## 许可证
 
 MIT

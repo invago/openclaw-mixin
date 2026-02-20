@@ -1,77 +1,65 @@
 {
- "name": "openclaw-mixin",
- "version": "1.0.0",
- "description": "Openclaw插件：将AI助手接入Mixin Messenger平台",
- "main": "index.js",
- "bin": {
- "openclaw-mixin": "./index.js"
- },
- "scripts": {
- "start": "node index.js",
- "dev": "nodemon index.js",
- "standalone": "node index.js",
- "plugin": "OPENCLAW_MODE=plugin node index.js",
- "test": "jest",
- "setup": "node scripts/setup.js",
- "test:webhook": "node test/mock-webhook.js",
- "test:single": "node test/mock-webhook.js --single",
- "test:image": "node test/mock-webhook.js --image",
- "lint": "eslint src/ --ext .js",
- "build": "echo '无需构建步骤'",
- "prepublishOnly": "npm test && npm run lint"
- },
- "keywords": [
- "openclaw",
- "mixin",
- "messenger",
- "chatbot",
- "ai",
- "plugin",
- "integration"
- ],
- "author": "invago<invago@cnawake.com>",
- "license": "MIT",
- "repository": {
- "type": "git",
- "url": "git+https://github.com/invago/openclaw-mixin.git"
- },
- "bugs": {
- "url": "https://github.com/invago/openclaw-mixin/issues"
- },
- "homepage": "https://github.com/invago/openclaw-mixin#readme",
- "engines": {
- "node": ">=18.0.0",
- "npm": ">=8.0.0"
- },
- "dependencies": {
- "express": "^4.18.0",
- "axios": "^1.6.0",
- "jsonwebtoken": "^9.0.0",
- "redis": "^4.6.0",
- "dotenv": "^16.3.0",
- "cors": "^2.8.5",
- "morgan": "^1.10.0",
- "uuid": "^9.0.0",
- "ws": "^8.14.0"
- },
- "devDependencies": {
- "nodemon": "^3.0.0",
- "jest": "^29.0.0",
- "eslint": "^8.0.0",
- "eslint-config-airbnb-base": "^15.0.0",
- "eslint-plugin-import": "^2.25.0"
- },
- "files": [
- "index.js",
- "claw.config.js",
- "src/",
- "scripts/",
- "test/",
- "README.md",
- "LICENSE",
- ".env.example"
- ],
- "config": {
- "port":3000
- }
+  "name": "@openclaw/channel-mixin",
+  "version": "1.0.0",
+  "description": "Openclaw 插件：将 AI 助手接入 Mixin Messenger 平台",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "jest",
+    "lint": "eslint src/ --ext .js",
+    "build": "echo '无需构建步骤'",
+    "prepublishOnly": "npm test && npm run lint"
+  },
+  "keywords": [
+    "openclaw",
+    "mixin",
+    "messenger",
+    "chatbot",
+    "ai",
+    "plugin",
+    "integration"
+  ],
+  "author": "invago<invago@cnawake.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/invago/openclaw-mixin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/invago/openclaw-mixin/issues"
+  },
+  "homepage": "https://github.com/invago/openclaw-mixin#readme",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.0",
+    "axios": "^1.6.0",
+    "jsonwebtoken": "^9.0.0",
+    "redis": "^4.6.0",
+    "dotenv": "^16.3.0",
+    "cors": "^2.8.5",
+    "morgan": "^1.10.0",
+    "uuid": "^9.0.0",
+    "ws": "^8.14.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0",
+    "jest": "^29.0.0",
+    "eslint": "^8.0.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.25.0"
+  },
+  "files": [
+    "index.js",
+    "openclaw.plugin.json",
+    "src/",
+    "scripts/",
+    "test/",
+    "README.md",
+    "LICENSE",
+    ".env.example"
+  ]
 }

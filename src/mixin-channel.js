@@ -11,7 +11,7 @@ const { CommandHandler } = require('./command-handler');
 const { createLogger } = require('./logger');
 const { MessageFilter } = require('./message-filter');
 
-class MixinChannel {
+class MixinChannelSimple {
  constructor(options = {}) {
  this.name = 'mixin';
  this.displayName = 'Mixin Messenger';
