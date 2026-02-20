@@ -1,45 +1,15 @@
 {
-  "id": "mixin",
-  "name": "Mixin Messenger",
+  "id": "mixin-openclaw",
+  "name": "Mixin",
+  "description": "Mixin Messenger channel plugin — WebSocket long-connection bot",
   "version": "1.0.0",
-  "description": "Openclaw 插件：将 AI 助手接入 Mixin Messenger 平台",
   "main": "index.js",
-  "type": "channel",
-  "entryPoint": "src/mixin-channel.js",
-  "author": "invago<invago@cnawake.com>",
-  "license": "MIT",
-  "keywords": [
-    "openclaw",
-    "mixin",
-    "messenger",
-    "chatbot",
-    "ai"
+  "channels": [
+    "mixin"
   ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/invago/openclaw-mixin.git"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "config": {
-    "mixin": {
-      "appId": {
-        "type": "string",
-        "required": true,
-        "description": "Mixin 应用 ID"
-      },
-      "sessionId": {
-        "type": "string",
-        "required": true,
-        "description": "Mixin 会话 ID"
-      },
-      "privateKey": {
-        "type": "string",
-        "required": true,
-        "description": "Mixin 私钥",
-        "sensitive": true
-      }
-    }
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
   }
 }
