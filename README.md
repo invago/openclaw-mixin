@@ -27,7 +27,7 @@ Mixin用户收到AI回复
 ##特性
 
 - ✅作为Openclaw通道适配器运行
-- ✅接收Mixin Messenger消息（Webhook）
+- ✅接收Mixin Messenger消息（WebSocket长连接）
 - ✅通过WebSocket与Openclaw Gateway通信
 - ✅支持文本、图片、文件等多种消息类型
 - ✅自动重连和错误处理
