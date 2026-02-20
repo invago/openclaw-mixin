@@ -38,18 +38,26 @@ openclaw plugins install ./extensions/mixin
 # 1. 先安装插件
 npm install invago/openclaw-mixin
 
-# 2. 使用交互式命令添加频道（会自动注册和配置）
+# 2. 使用交互式命令添加频道（如果支持）
 openclaw channels add
-# 在交互界面中选择 "mixin" 并按提示完成配置
+# 在交互界面中选择 "Mixin" 并按提示完成配置
 ```
 
-**注意：** 请使用 `openclaw channels add` 命令来添加和配置频道，而不是直接使用 `openclaw config set`。
-因为 `config set` 命令要求频道必须已经注册，而新安装的插件需要先通过 `channels add` 命令注册。
+**注意：** 如果 `channels add` 命令不显示 Mixin 频道，请尝试以下备选方法。
 
-### 方式二：手动编辑配置文件
+### 方式二：手动配置（推荐备选方案）
 
-1. 确保插件已安装到 Openclaw 插件目录
-2. 编辑 `~/.openclaw/openclaw.json`：
+```bash
+# 直接设置配置项（无需 channels add）
+openclaw config set channels.mixin.enabled true
+openclaw config set channels.mixin.appId "your_app_id"
+openclaw config set channels.mixin.sessionId "your_session_id"
+openclaw config set channels.mixin.privateKey "your_private_key"
+```
+
+### 方式三：直接编辑配置文件
+
+1. 编辑 `~/.openclaw/openclaw.json`：
 
 ```json5
 {
@@ -64,7 +72,16 @@ openclaw channels add
 }
 ```
 
-3. 重启 Openclaw Gateway 使配置生效
+2. 重启 Openclaw Gateway 使配置生效
+
+### 方式四：使用环境变量
+
+```bash
+export MIXIN_APP_ID="your_app_id"
+export MIXIN_SESSION_ID="your_session_id"
+export MIXIN_SESSION_PRIVATE_KEY="your_private_key_base64"
+export OPENCLAW_GATEWAY_URL="ws://127.0.0.1:18789"
+```
 
 ### 方式三：使用环境变量
 
