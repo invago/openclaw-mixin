@@ -35,19 +35,21 @@ openclaw plugins install ./extensions/mixin
 ### 方式一：通过 Openclaw CLI 配置（推荐）
 
 ```bash
-# 交互式配置（自动引导）
-openclaw channels add
+# 1. 先安装插件
+npm install invago/openclaw-mixin
 
-# 或手动设置配置项
-openclaw config set channels.mixin.enabled true
-openclaw config set channels.mixin.appId "cli_xxx"
-openclaw config set channels.mixin.sessionId "xxx"
-openclaw config set channels.mixin.privateKey "xxx"
+# 2. 使用交互式命令添加频道（会自动注册和配置）
+openclaw channels add
+# 在交互界面中选择 "mixin" 并按提示完成配置
 ```
 
-### 方式二：直接编辑配置文件
+**注意：** 请使用 `openclaw channels add` 命令来添加和配置频道，而不是直接使用 `openclaw config set`。
+因为 `config set` 命令要求频道必须已经注册，而新安装的插件需要先通过 `channels add` 命令注册。
 
-编辑 `~/.openclaw/openclaw.json`：
+### 方式二：手动编辑配置文件
+
+1. 确保插件已安装到 Openclaw 插件目录
+2. 编辑 `~/.openclaw/openclaw.json`：
 
 ```json5
 {
@@ -61,6 +63,8 @@ openclaw config set channels.mixin.privateKey "xxx"
   }
 }
 ```
+
+3. 重启 Openclaw Gateway 使配置生效
 
 ### 方式三：使用环境变量
 
