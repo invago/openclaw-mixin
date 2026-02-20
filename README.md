@@ -4,16 +4,18 @@
 
 ## 安装方式
 
-### 方式一：通过 npm 安装（推荐）
+### 方式一：通过 GitHub 安装（当前可用）
+
+由于包尚未正式发布到 npm，目前可以通过 GitHub 直接安装：
 
 ```bash
-npm install openclaw-mixin-channel
+npm install invago/openclaw-mixin
 ```
 
 或者
 
 ```bash
-npm install invago/openclaw-mixin
+npm install github:invago/openclaw-mixin
 ```
 
 ### 方式二：本地安装（开发调试）
@@ -22,11 +24,11 @@ npm install invago/openclaw-mixin
 openclaw plugins install ./extensions/mixin
 ```
 
-### 方式三：从 GitHub 安装
+### 注意事项
 
-```bash
-npm install invago/openclaw-mixin
-```
+- 此插件完全兼容 Openclaw 插件系统，功能与官方 Feishu 频道插件相同
+- 配置方式、CLI 命令等均按照 Openclaw 标准实现
+- 未来计划发布到 npm，届时可通过 `npm install openclaw-mixin-channel` 安装
 
 ## 配置方式
 
