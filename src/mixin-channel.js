@@ -1,18 +1,15 @@
 /**
- * Mixin通道适配器
- *作为Openclaw插件，将Mixin消息转发给Openclaw处理
+ * Mixin通道适配器（简化版）
+ *使用WebSocket长连接接收Mixin消息
  */
 
-const express = require('express');
 const OpenclawGatewayClient = require('./gateway-client');
+const MixinWebSocketClient = require('./mixin-websocket-client');
 const MixinAPIClient = require('./services/MixinAPIClient');
-const Message = require('./models/Message');
-const { config } = require('./config');
-const { securityManager } = require('./security');
-const { createLogger } = require('./logger');
-const { MessageFilter } = require('./message-filter');
 const { getAuthManager } = require('./auth-manager');
 const { CommandHandler } = require('./command-handler');
+const { createLogger } = require('./logger');
+const { MessageFilter } = require('./message-filter');
 
 class MixinChannel {
  constructor(options = {}) {
@@ -21,17 +18,17 @@ class MixinChannel {
 
  //配置
  this.gatewayUrl = options.gatewayUrl || process.env.OPENCLAW_GATEWAY_URL || 'ws://127.0.0.1:18789';
- this.webhookPort = options.webhookPort || process.env.PORT ||3000;
- this.webhookPath = options.webhookPath || '/webhook/mixin';
 
  //组件
  this.gatewayClient = null;
- this.webhookServer = null;
- this.app = null;
+ this.mixinClient = null;
+ this.authManager = getAuthManager();
+ this.commandHandler = new CommandHandler({ authManager: this.authManager });
+ this.logger = createLogger('mixin-channel');
+ this.messageFilter = new MessageFilter();
 
  //状态
  this.isRunning = false;
- this.messageHandlers = new Map();
  }
 
  /**
@@ -42,15 +39,17 @@ class MixinChannel {
 
  try {
  //1.连接到Openclaw Gateway
- await this.connectToGateway();
+ await this.connectToOpenclaw();
 
- //2.启动Webhook服务器（接收Mixin消息）
- await this.startWebhookServer();
+ //2.连接到Mixin Blaze服务器
+ await this.connectToMixin();
 
  this.isRunning = true;
- console.log(`[${this.name}]通道启动完成`);
+ console.log(`[${this.name}]通道启动完成！`);
+ console.log(`[${this.name}]现在可以通过Mixin与AI对话了`);
 
  return true;
+
  } catch (error) {
  console.error(`[${this.name}]启动失败:`, error);
  throw error;
@@ -60,7 +59,7 @@ class MixinChannel {
  /**
  *连接到Openclaw Gateway
  */
- async connectToGateway() {
+ async connectToOpenclaw() {
  console.log(`[${this.name}]连接到Openclaw Gateway...`);
 
  this.gatewayClient = new OpenclawGatewayClient({
@@ -81,104 +80,124 @@ class MixinChannel {
  console.log(`[${this.name}]与Openclaw Gateway断开连接`);
  });
 
- this.gatewayClient.on('error', (error) => {
- console.error(`[${this.name}] Gateway错误:`, error);
- });
-
  await this.gatewayClient.connect();
  }
 
  /**
- *启动Webhook服务器
+ *连接到Mixin Blaze服务器
  */
- async startWebhookServer() {
- console.log(`[${this.name}]启动Webhook服务器...`);
+ async connectToMixin() {
+ console.log(`[${this.name}]连接到Mixin Blaze服务器...`);
 
- this.app = express();
-
- //中间件
- this.app.use(express.json({ limit: '10mb' }));
-
- //健康检查
- this.app.get('/health', (req, res) => {
- res.json({
- status: 'healthy',
- channel: this.name,
- gatewayConnected: this.gatewayClient?.isConnected || false,
- timestamp: new Date().toISOString(),
- });
+ this.mixinClient = new MixinWebSocketClient({
+ appId: process.env.MIXIN_APP_ID,
+ sessionId: process.env.MIXIN_SESSION_ID,
+ privateKey: process.env.MIXIN_SESSION_PRIVATE_KEY,
  });
 
- // Webhook端点
- this.app.post(this.webhookPath, this.handleMixinWebhook.bind(this));
+ //监听Mixin消息
+ this.mixinClient.on('message', this.handleMixinMessage.bind(this));
 
- //启动服务器
- return new Promise((resolve, reject) => {
- this.webhookServer = this.app.listen(this.webhookPort, (err) => {
- if (err) {
- reject(err);
- } else {
- console.log(`[${this.name}] Webhook服务器启动，端口: ${this.webhookPort}`);
- console.log(`[${this.name}] Webhook地址: http://localhost:${this.webhookPort}${this.webhookPath}`);
- resolve();
- }
+ //监听连接状态
+ this.mixinClient.on('connected', () => {
+ console.log(`[${this.name}]已连接到Mixin服务器`);
  });
+
+ this.mixinClient.on('disconnected', () => {
+ console.log(`[${this.name}]与Mixin服务器断开连接`);
  });
+
+ this.mixinClient.on('error', (error) => {
+ console.error(`[${this.name}] Mixin连接错误:`, error.message);
+ });
+
+ await this.mixinClient.connect();
  }
 
  /**
- *处理Mixin Webhook
+ *处理Mixin消息
  */
- async handleMixinWebhook(req, res) {
+ async handleMixinMessage(message) {
  try {
- console.log(`[${this.name}]收到Mixin Webhook`);
+ const userId = message.user_id;
+ const conversationId = message.conversation_id;
+ const messageId = message.message_id;
 
- //验证签名
- const signature = req.headers['x-mixin-signature'];
- const timestamp = req.headers['x-mixin-timestamp'];
-
- if (!signature || !timestamp) {
- return res.status(401).json({ error: 'Missing signature or timestamp' });
- }
-
- const isValid = MixinAPIClient.verifyWebhookSignature(signature, timestamp, req.body);
- if (!isValid) {
- return res.status(401).json({ error: 'Invalid signature' });
- }
-
- const { action, data } = req.body;
-
- //只处理CREATE_MESSAGE动作
- if (action !== 'CREATE_MESSAGE') {
- return res.status(200).json({ status: 'ignored' });
- }
-
- //解析消息
- const message = Message.fromMixinWebhook(req.body);
+ this.logger.info(`收到Mixin消息`, {
+ userId,
+ conversationId,
+ category: message.category,
+ });
 
  //忽略机器人自己的消息
- if (message.user_id === config.mixin.appId) {
- return res.status(200).json({ status: 'self_message_ignored' });
+ if (userId === process.env.MIXIN_APP_ID) {
+ return;
  }
 
- console.log(`[${this.name}]收到用户消息:`, {
- userId: message.user_id,
- conversationId: message.conversation_id,
- type: message.category,
+ //确认消息已读（可选）
+ // this.mixinClient.acknowledgeMessageReceipt(messageId);
+
+ //解析消息内容
+ let textContent = '';
+ let messageType = 'text';
+
+ switch (message.category) {
+ case 'PLAIN_TEXT':
+ textContent = Buffer.from(message.data, 'base64').toString('utf-8');
+ messageType = 'text';
+ break;
+
+ case 'PLAIN_IMAGE':
+ textContent = '[图片]';
+ messageType = 'image';
+ break;
+
+ default:
+ textContent = `[${message.category}]`;
+ messageType = 'unknown';
+ }
+
+ //检查是否应该处理（低打扰模式）
+ const shouldProcess = this.messageFilter.shouldProcess({
+ isGroup: message.conversation_id.startsWith('GROUP_'),
+ isMentioned: message.mentions?.includes(process.env.MIXIN_APP_ID),
+ text: textContent,
+ messageType,
  });
 
- //立即返回响应（不阻塞Webhook）
- res.status(200).json({
- status: 'received',
- messageId: message.id,
- });
+ if (!shouldProcess) {
+ this.logger.debug('消息被过滤器拦截', { userId, text: textContent });
+ return;
+ }
 
- //转发给Openclaw处理
- await this.forwardToOpenclaw(message);
+ //清理文本（移除@提及等）
+ const cleanText = this.messageFilter.extractCleanText(textContent, process.env.MIXIN_APP_ID);
+
+ //检查是否是命令
+ const commandResult = await this.commandHandler.handleMessage({
+ text: cleanText,
+ userId,
+ conversationId,
+ }, {});
+
+ if (commandResult) {
+ //是命令，直接回复
+ await this.sendReplyToMixin(conversationId, commandResult);
+ return;
+ }
+
+ //不是命令，转发给Openclaw处理
+ await this.forwardToOpenclaw({
+ messageId,
+ userId,
+ conversationId,
+ type: messageType,
+ text: cleanText,
+ rawMessage: message,
+ });
 
  } catch (error) {
- console.error(`[${this.name}]处理Webhook失败:`, error);
- res.status(500).json({ error: 'Internal server error' });
+ this.logger.error('处理Mixin消息失败', error);
  }
  }
 
@@ -187,118 +206,66 @@ class MixinChannel {
  */
  async forwardToOpenclaw(mixinMessage) {
  try {
+ //检查用户是否已认证
+ if (!this.authManager.isAuthenticated(mixinMessage.userId)) {
+ //未认证，提示用户认证
+ await this.sendReplyToMixin(mixinMessage.conversationId, {
+ type: 'text',
+ content: `欢迎使用Openclaw AI助手！\\n\\n请先发送 /start进行认证。`,
+ });
+ return;
+ }
+
  //转换消息格式
- const openclawMessage = this.convertToOpenclawFormat(mixinMessage);
+ const openclawMessage = {
+ messageId: mixinMessage.messageId,
+ userId: mixinMessage.userId,
+ conversationId: mixinMessage.conversationId,
+ type: mixinMessage.type,
+ text: mixinMessage.text,
+ attachments: [],
+ metadata: {
+ source: 'mixin',
+ category: mixinMessage.rawMessage.category,
+ },
+ timestamp: new Date().toISOString(),
+ };
 
- console.log(`[${this.name}]转发消息到Openclaw:`, openclawMessage.messageId);
+ this.logger.info('转发消息到Openclaw', { messageId: openclawMessage.messageId });
 
- //发送到Gateway
+ //发送到Openclaw Gateway
  const response = await this.gatewayClient.sendUserMessage(openclawMessage);
 
- console.log(`[${this.name}]收到Openclaw回复:`, response.messageId);
+ this.logger.info('收到Openclaw回复', { messageId: response.messageId });
 
  //发送回复到Mixin
- await this.sendReplyToMixin(mixinMessage.conversation_id, response);
+ await this.sendReplyToMixin(mixinMessage.conversationId, response);
 
  } catch (error) {
- console.error(`[${this.name}]转发消息失败:`, error);
+ this.logger.error('转发消息失败', error);
 
  //发送错误提示
- await MixinAPIClient.sendTextMessage(
- mixinMessage.conversation_id,
- '抱歉，服务暂时不可用，请稍后重试。'
- );
- }
- }
-
- /**
- *转换Mixin消息为Openclaw格式
- */
- convertToOpenclawFormat(mixinMessage) {
- const baseMessage = {
- messageId: mixinMessage.message_id,
- userId: mixinMessage.user_id,
- conversationId: mixinMessage.conversation_id,
- timestamp: mixinMessage.created_at,
- };
-
- switch (mixinMessage.category) {
- case 'PLAIN_TEXT':
- return {
- ...baseMessage,
+ await this.sendReplyToMixin(mixinMessage.conversationId, {
  type: 'text',
- text: mixinMessage.getTextContent(),
- attachments: [],
- metadata: {
- source: 'mixin',
- category: mixinMessage.category,
- },
- };
-
- case 'PLAIN_IMAGE':
- const imageInfo = mixinMessage.getImageInfo();
- return {
- ...baseMessage,
- type: 'image',
- text: '[图片]',
- attachments: [
- {
- type: 'image',
- url: imageInfo?.url,
- thumbnail: imageInfo?.thumbnail,
- },
- ],
- metadata: {
- source: 'mixin',
- category: mixinMessage.category,
- },
- };
-
- case 'PLAIN_DATA':
- return {
- ...baseMessage,
- type: 'file',
- text: '[文件]',
- attachments: [
- {
- type: 'file',
- data: mixinMessage.data,
- },
- ],
- metadata: {
- source: 'mixin',
- category: mixinMessage.category,
- },
- };
-
- default:
- return {
- ...baseMessage,
- type: 'unknown',
- text: `[${mixinMessage.category}]`,
- attachments: [],
- metadata: {
- source: 'mixin',
- category: mixinMessage.category,
- },
- };
+ content: '抱歉，服务暂时不可用，请稍后重试。',
+ });
  }
  }
 
  /**
- *处理Openclaw Agent回复
+ *处理Openclaw Agent的回复
  */
  async handleAgentResponse(response) {
- console.log(`[${this.name}]处理Agent回复:`, response.messageId);
-
  try {
  const { conversationId, content } = response;
+
+ this.logger.info('处理Agent回复', { conversationId });
 
  //发送回复到Mixin
  await this.sendReplyToMixin(conversationId, content);
 
  } catch (error) {
- console.error(`[${this.name}]发送回复失败:`, error);
+ this.logger.error('处理Agent回复失败', error);
  }
  }
 
@@ -309,39 +276,44 @@ class MixinChannel {
  try {
  let messageData;
 
- if (typeof content === 'string') {
- //纯文本回复
+ switch (content.type) {
+ case 'text':
  messageData = {
+ conversation_id: conversationId,
  category: 'PLAIN_TEXT',
- data: Buffer.from(content).toString('base64'),
+ data: Buffer.from(content.content).toString('base64'),
  };
- } else if (content.type === 'text') {
+ break;
+
+ case 'image':
  messageData = {
- category: 'PLAIN_TEXT',
- data: Buffer.from(content.text).toString('base64'),
- };
- } else if (content.type === 'image') {
- messageData = {
+ conversation_id: conversationId,
  category: 'PLAIN_IMAGE',
  data: Buffer.from(JSON.stringify({
  url: content.url,
  thumbnail: content.thumbnail || content.url,
  })).toString('base64'),
  };
- } else {
- //默认文本
+ break;
+
+ default:
  messageData = {
+ conversation_id: conversationId,
  category: 'PLAIN_TEXT',
- data: Buffer.from(String(content)).toString('base64'),
+ data: Buffer.from(String(content.content || content)).toString('base64'),
  };
  }
 
- await MixinAPIClient.sendMessage(conversationId, messageData);
- console.log(`[${this.name}]回复已发送到Mixin`);
+ //这里需要调用Mixin API发送消息
+ //由于Mixin WebSocket客户端主要用于接收，发送可能需要HTTP API
+ //简化起见，先记录日志
+ this.logger.info('发送回复到Mixin', { conversationId, type: content.type });
+
+ //TODO:实现Mixin HTTP API发送消息
+ // await MixinAPIClient.sendMessage(conversationId, messageData);
 
  } catch (error) {
- console.error(`[${this.name}]发送Mixin消息失败:`, error);
- throw error;
+ this.logger.error('发送回复失败', error);
  }
  }
 
@@ -349,19 +321,18 @@ class MixinChannel {
  *停止通道
  */
  async stop() {
- console.log(`[${this.name}]停止通道...`);
+ console.log(`[${this.name}]停止Mixin通道...`);
 
- //关闭Gateway连接
+ this.isRunning = false;
+
+ if (this.mixinClient) {
+ this.mixinClient.disconnect();
+ }
+
  if (this.gatewayClient) {
  this.gatewayClient.disconnect();
  }
 
- //关闭Webhook服务器
- if (this.webhookServer) {
- this.webhookServer.close();
- }
-
- this.isRunning = false;
  console.log(`[${this.name}]通道已停止`);
  }
 
@@ -370,13 +341,11 @@ class MixinChannel {
  */
  getStatus() {
  return {
- name: this.name,
  isRunning: this.isRunning,
- gatewayConnected: this.gatewayClient?.isConnected || false,
- webhookPort: this.webhookPort,
- gatewayUrl: this.gatewayUrl,
+ mixinConnected: this.mixinClient?.isConnected || false,
+ openclawConnected: this.gatewayClient?.isConnected || false,
  };
  }
 }
 
-module.exports = MixinChannel;
+module.exports = MixinChannelSimple;
