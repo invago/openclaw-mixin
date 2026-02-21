@@ -10,20 +10,18 @@
     "properties": {
       "MIXIN_APP_ID": {
         "type": "string",
-        "description": "Mixin 应用的 App ID",
-        "required": true
+        "description": "Mixin 应用的 App ID"
       },
       "MIXIN_SESSION_ID": {
         "type": "string",
-        "description": "Mixin 应用的 Session ID",
-        "required": true
+        "description": "Mixin 应用的 Session ID"
       },
       "MIXIN_SESSION_PRIVATE_KEY": {
         "type": "string",
-        "description": "会话私钥（Base64 编码）",
-        "required": true
+        "description": "会话私钥（Base64 编码）"
       }
     },
+    "required": ["MIXIN_APP_ID", "MIXIN_SESSION_ID", "MIXIN_SESSION_PRIVATE_KEY"],
     "additionalProperties": false
   }
 }
