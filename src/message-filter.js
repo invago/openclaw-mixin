@@ -155,10 +155,10 @@ class MessageFilter {
  }
 
  //移除通用的@提及
- cleanText = cleanText.replace(/@\\w+\\s*/g, '');
+ cleanText = cleanText.replace(/@\w+\s*/g, '');
 
  //清理多余空格
- cleanText = cleanText.trim().replace(/\\s+/g, ' ');
+ cleanText = cleanText.trim().replace(/\s+/g, ' ');
 
  return cleanText;
  }

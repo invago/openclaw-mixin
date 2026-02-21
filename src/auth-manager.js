@@ -123,8 +123,8 @@ class AuthManager {
 *生成配对码
  */
  generatePairingCode(userId) {
- //生成6位数字配对码
- const code = Math.floor(100000 + Math.random() *900000).toString();
+ //生成6位数字配对码（使用加密安全的随机数）
+ const code = crypto.randomInt(100000, 1000000).toString();
 
  //存储配对信息
  this.pendingAuth[userId] = {

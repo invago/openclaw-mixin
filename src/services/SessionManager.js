@@ -12,25 +12,45 @@ class SessionManager {
  try {
  this.client = redis.createClient({
  url: `redis://${config.redis.host}:${config.redis.port}`,
- password: config.redis.password,
+ password: config.redis.password || undefined,
+ socket: {
+ connectTimeout: 5000,
+ reconnectStrategy: (retries) => {
+ if (retries > 3) {
+ console.warn('[SessionManager] Redis重连次数过多，切换到内存存储模式');
+ this.connected = false;
+ return false; // 停止重连
+ }
+ return Math.min(retries * 1000, 3000);
+ },
+ },
  });
 
  this.client.on('error', (err) => {
- console.error('Redis连接错误:', err);
+ // 只在非连接错误时打印
+ if (!err.message.includes('ECONNREFUSED')) {
+ console.error('[SessionManager] Redis错误:', err.message);
+ }
  this.connected = false;
  });
 
  this.client.on('connect', () => {
- console.log('Redis连接成功');
+ console.log('[SessionManager] Redis连接成功');
+ this.connected = true;
+ });
+
+ this.client.on('ready', () => {
+ console.log('[SessionManager] Redis准备就绪');
  this.connected = true;
  });
 
  await this.client.connect();
  } catch (error) {
- console.error('初始化Redis失败:', error);
- //降级为内存存储
+ console.warn('[SessionManager] Redis连接失败，降级为内存存储模式:', error.message);
+ // 降级为内存存储
  this.client = null;
  this.memoryStore = new Map();
+ this.connected = false;
  }
  }
 

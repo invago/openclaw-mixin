@@ -70,18 +70,37 @@ class Logger {
 *清理敏感信息
  */
  sanitizeMeta(meta) {
- const sensitive = ['password', 'secret', 'token', 'key', 'privateKey', 'apiKey'];
+ const sensitive = ['password', 'secret', 'token', 'key', 'privateKey', 'apiKey', 'authorization', 'cookie'];
  const sanitized = {};
 
  for (const [k, v] of Object.entries(meta)) {
  if (sensitive.some(s => k.toLowerCase().includes(s))) {
  sanitized[k] = '[HIDDEN]';
+ } else if (typeof v === 'string' && v.length > 100) {
+ // 隐藏长字符串（可能是密钥或token）
+ sanitized[k] = v.substring(0, 20) + '...[HIDDEN]';
+ } else if (typeof v === 'object' && v !== null) {
+ // 递归处理嵌套对象
+ sanitized[k] = this.sanitizeMeta(v);
  } else {
  sanitized[k] = v;
  }
  }
 
  return sanitized;
+ }
+
+ /**
+*脱敏消息内容
+ */
+ sanitizeMessage(message) {
+ if (typeof message !== 'string') return message;
+
+ return message
+ .replace(/[a-f0-9]{64,}/gi, '[HASH_HIDDEN]') // SHA256等哈希
+ .replace(/[A-Za-z0-9+/]{40,}={0,2}/g, '[BASE64_HIDDEN]') // Base64编码
+ .replace(/-----BEGIN [A-Z ]+-----[\s\S]*?-----END [A-Z ]+-----/g, '[PEM_KEY_HIDDEN]') // PEM密钥
+ .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '[UUID]'); // UUID
  }
 
  /**
@@ -225,7 +244,8 @@ class Logger {
  responseTime: `${responseTime}ms`,
  ip: req.ip || req.connection?.remoteAddress,
  userAgent: req.headers?.['user-agent'],
- }n
+ };
+
 
  this.info(`${req.method} ${req.url}`, meta);
  }

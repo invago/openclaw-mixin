@@ -304,13 +304,10 @@ class MixinChannelSimple {
  };
  }
 
- //这里需要调用Mixin API发送消息
- //由于Mixin WebSocket客户端主要用于接收，发送可能需要HTTP API
- //简化起见，先记录日志
+ //调用Mixin API发送消息
  this.logger.info('发送回复到Mixin', { conversationId, type: content.type });
 
- //TODO:实现Mixin HTTP API发送消息
- // await MixinAPIClient.sendMessage(conversationId, messageData);
+ await MixinAPIClient.sendMessage(conversationId, messageData);
 
  } catch (error) {
  this.logger.error('发送回复失败', error);

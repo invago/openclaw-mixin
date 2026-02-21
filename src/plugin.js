@@ -4,6 +4,7 @@
  */
 
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const config = require('./config').config;
@@ -136,8 +137,17 @@ class MixinPlugin {
  *设置路由
  */
  setupRoutes() {
- //Webhook端点
- this.app.post('/webhook/mixin', this.handleWebhook.bind(this));
+ //Webhook速率限制：每IP每分钟最多60个请求
+ const webhookRateLimiter = rateLimit({
+ windowMs: 60 * 1000, // 1分钟
+ max: 60, // 每个IP最多60个请求
+ message: { error: 'Too many requests, please try again later.' },
+ standardHeaders: true,
+ legacyHeaders: false,
+ });
+
+ //Webhook端点（带速率限制）
+ this.app.post('/webhook/mixin', webhookRateLimiter, this.handleWebhook.bind(this));
 
  //健康检查
  this.app.get('/health', (req, res) => {

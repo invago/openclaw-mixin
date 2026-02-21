@@ -53,7 +53,6 @@ function validateConfig() {
  'MIXIN_APP_ID',
  'MIXIN_SESSION_ID',
  'MIXIN_SESSION_PRIVATE_KEY',
- 'JWT_SECRET',
  ];
 
  const missing = required.filter(key => !process.env[key]);
