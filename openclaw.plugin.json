@@ -1,7 +1,7 @@
 {
-  "id": "mixin-messenger",
+  "id": "mixin",
   "name": "Mixin Messenger",
-  "description": "将Openclaw AI助手接入Mixin Messenger平台",
+  "description": "将 Openclaw AI 助手接入 Mixin Messenger 平台",
   "version": "1.0.0",
   "kind": "channel",
   "main": "./index.js",
@@ -10,17 +10,17 @@
     "properties": {
       "MIXIN_APP_ID": {
         "type": "string",
-        "description": "Mixin应用的App ID",
+        "description": "Mixin 应用的 App ID",
         "required": true
       },
       "MIXIN_SESSION_ID": {
         "type": "string",
-        "description": "Mixin应用的Session ID",
+        "description": "Mixin 应用的 Session ID",
         "required": true
       },
       "MIXIN_SESSION_PRIVATE_KEY": {
         "type": "string",
-        "description": "会话私钥（Base64编码）",
+        "description": "会话私钥（Base64 编码）",
         "required": true
       }
     },
