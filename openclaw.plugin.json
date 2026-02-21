@@ -1,5 +1,5 @@
 {
-  "id": "mixin",
+  "id": "openclaw-mixin-channel",
   "name": "Mixin Messenger",
   "description": "将 Openclaw AI 助手接入 Mixin Messenger 平台",
   "version": "1.0.0",

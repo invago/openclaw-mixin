@@ -30,6 +30,23 @@
     "url": "https://github.com/invago/openclaw-mixin/issues"
   },
   "homepage": "https://github.com/invago/openclaw-mixin#readme",
+  "openclaw": {
+    "channel": {
+      "id": "mixin",
+      "label": "Mixin Messenger",
+      "selectionLabel": "Mixin Messenger (WebSocket)",
+      "docsPath": "/channels/mixin",
+      "docsLabel": "mixin",
+      "blurb": "Connect to Mixin Messenger via WebSocket Blaze server.",
+      "order": 70,
+      "aliases": ["mixin-messenger"]
+    },
+    "install": {
+      "npmSpec": "openclaw-mixin-channel",
+      "localPath": "extensions/mixin",
+      "defaultChoice": "npm"
+    }
+  },
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=8.0.0"
