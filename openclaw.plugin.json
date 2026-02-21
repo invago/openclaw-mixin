@@ -1,15 +1,29 @@
 {
-  "id": "mixin-openclaw",
-  "name": "Mixin",
-  "description": "Mixin Messenger channel plugin — WebSocket long-connection bot",
+  "id": "mixin-messenger",
+  "name": "Mixin Messenger",
+  "description": "将Openclaw AI助手接入Mixin Messenger平台",
   "version": "1.0.0",
-  "main": "index.js",
-  "channels": [
-    "mixin"
-  ],
+  "kind": "channel",
+  "main": "./index.js",
   "configSchema": {
     "type": "object",
-    "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "MIXIN_APP_ID": {
+        "type": "string",
+        "description": "Mixin应用的App ID",
+        "required": true
+      },
+      "MIXIN_SESSION_ID": {
+        "type": "string",
+        "description": "Mixin应用的Session ID",
+        "required": true
+      },
+      "MIXIN_SESSION_PRIVATE_KEY": {
+        "type": "string",
+        "description": "会话私钥（Base64编码）",
+        "required": true
+      }
+    },
+    "additionalProperties": false
   }
 }
