@@ -63,6 +63,8 @@ services:
  - "80:80"
  - "443:443"
  volumes:
+   # 注意：需要提前创建 nginx.conf 文件和 ssl 目录
+   # mkdir -p ssl && cp /path/to/certs/* ssl/
  - ./nginx.conf:/etc/nginx/nginx.conf:ro
  - ./ssl:/etc/nginx/ssl:ro
 

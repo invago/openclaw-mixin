@@ -64,12 +64,12 @@ class OpenclawClient {
  timestamp: new Date().toISOString(),
  },
  context: sessionContext,
- options: {
- language: 'zh-CN',
- includeContext: true,
- maxTokens:1000,
- temperature:0.7,
- },
+  options: {
+    language: config.openclaw.language || 'zh-CN',
+    includeContext: true,
+    maxTokens: config.openclaw.maxTokens || 1000,
+    temperature: config.openclaw.temperature || 0.7,
+  },
  };
  }
 

@@ -1,7 +1,7 @@
 /**
- * Mixin WebSocket客户端
- *通过WebSocket长连接接收Mixin消息
- *参考Mixin Bot的WebSocket实现
+ * Mixin WebSocket 客户端
+ * 通过 WebSocket 长连接接收 Mixin 消息
+ * 参考 Mixin Bot 的 WebSocket 实现
  */
 
 const WebSocket = require('ws');
@@ -9,290 +9,396 @@ const EventEmitter = require('events');
 const { v4: uuidv4 } = require('uuid');
 
 class MixinWebSocketClient extends EventEmitter {
- constructor(options = {}) {
- super();
+  constructor(options = {}) {
+    super();
 
- this.appId = options.appId || process.env.MIXIN_APP_ID;
- this.sessionId = options.sessionId || process.env.MIXIN_SESSION_ID;
- this.privateKey = options.privateKey || process.env.MIXIN_SESSION_PRIVATE_KEY;
+    this.appId = options.appId || process.env.MIXIN_APP_ID;
+    this.sessionId = options.sessionId || process.env.MIXIN_SESSION_ID;
+    this.privateKey = options.privateKey || process.env.MIXIN_SESSION_PRIVATE_KEY;
 
- //Mixin Blaze服务器地址
- this.blazeHost = options.blazeHost || 'blaze.mixin.one';
- this.blazePort = options.blazePort ||443;
+    // Mixin Blaze 服务器地址
+    this.blazeHost = options.blazeHost || 'blaze.mixin.one';
+    this.blazePort = options.blazePort || 443;
 
- this.ws = null;
- this.isConnected = false;
- this.reconnectAttempts =0;
- this.maxReconnectAttempts = options.maxReconnectAttempts ||10;
- this.reconnectInterval = options.reconnectInterval ||5000;
+    this.ws = null;
+    this.isConnected = false;
+    this.isConnecting = false;
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = options.maxReconnectAttempts || 10;
+    this.reconnectInterval = options.reconnectInterval || 5000;
+    this.shouldReconnect = true; // 控制是否应该重连
 
- //消息ID追踪
- this.pendingMessages = new Map();
- }
+    // 消息 ID 追踪
+    this.pendingMessages = new Map();
 
- /**
- *连接到Mixin Blaze服务器
- */
- async connect() {
- if (this.isConnected) {
- console.log('[MixinWS]已经连接');
- return;
- }
+    // 消息去重
+    this.processedMessages = new Set();
+    this.maxMessageCache = 1000;
 
- try {
- console.log('[MixinWS]连接到Mixin Blaze服务器...');
+    // 心跳检测
+    this.heartbeatInterval = null;
+    this.heartbeatTimeout = 30000; // 30 秒
+    this.lastPongReceived = null;
+  }
 
- //生成认证token
- const authToken = await this.generateAuthToken();
+  /**
+   * 连接到 Mixin Blaze 服务器
+   */
+  async connect() {
+    if (this.isConnected || this.isConnecting) {
+      console.log('[MixinWS] 已经连接或正在连接中');
+      return;
+    }
 
- //构建WebSocket URL
- const wsUrl = `wss://${this.blazeHost}:${this.blazePort}`;
+    this.shouldReconnect = true;
 
- //创建WebSocket连接
- this.ws = new WebSocket(wsUrl, {
- headers: {
- 'Authorization': `Bearer ${authToken}`,
- 'X-Request-Id': uuidv4(),
- },
- });
+    try {
+      console.log('[MixinWS] 连接到 Mixin Blaze 服务器...');
 
- //设置事件处理器
- this.setupEventHandlers();
+      // 生成认证 token
+      const authToken = await this.generateAuthToken();
 
- //等待连接成功
- await this.waitForConnection();
+      // 构建 WebSocket URL
+      const wsUrl = `wss://${this.blazeHost}:${this.blazePort}`;
 
- console.log('[MixinWS]连接成功！');
- this.isConnected = true;
- this.reconnectAttempts =0;
+      // 创建 WebSocket 连接
+      this.ws = new WebSocket(wsUrl, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'X-Request-Id': uuidv4(),
+        },
+        handshakeTimeout: 10000,
+      });
 
- //发送LIST_PENDING_MESSAGES命令获取离线消息
- this.listPendingMessages();
+      this.isConnecting = true;
 
- } catch (error) {
- console.error('[MixinWS]连接失败:', error.message);
- this.handleReconnect();
- }
- }
+      // 设置事件处理器
+      this.setupEventHandlers();
 
- /**
- *生成认证Token
- */
- async generateAuthToken() {
- const jwt = require('jsonwebtoken');
+      // 等待连接成功
+      await this.waitForConnection();
 
- const payload = {
- uid: this.appId,
- sid: this.sessionId,
- iat: Math.floor(Date.now() /1000),
- exp: Math.floor(Date.now() /1000) +3600, //1小时有效期
- jti: uuidv4(),
- sig: '', //如果需要可以添加签名
- };
+      console.log('[MixinWS] 连接成功！');
+      this.isConnected = true;
+      this.isConnecting = false;
+      this.reconnectAttempts = 0;
 
- //使用私钥签名
- const token = jwt.sign(payload, Buffer.from(this.privateKey, 'base64'), {
- algorithm: 'RS512',
- });
+      // 启动心跳检测
+      this.startHeartbeat();
 
- return token;
- }
+      // 发送 LIST_PENDING_MESSAGES 命令获取离线消息
+      this.listPendingMessages();
 
- /**
- *设置WebSocket事件处理器
- */
- setupEventHandlers() {
- this.ws.on('open', () => {
- console.log('[MixinWS]WebSocket连接已打开');
- this.emit('connected');
- });
+    } catch (error) {
+      console.error('[MixinWS] 连接失败:', error.message);
+      this.isConnecting = false;
+      if (this.shouldReconnect) {
+        this.handleReconnect();
+      }
+    }
+  }
 
- this.ws.on('message', (data) => {
- this.handleMessage(data);
- });
+  /**
+   * 生成认证 Token
+   */
+  async generateAuthToken() {
+    const jwt = require('jsonwebtoken');
 
- this.ws.on('error', (error) => {
- console.error('[MixinWS]WebSocket错误:', error.message);
- this.emit('error', error);
- });
+    const payload = {
+      uid: this.appId,
+      sid: this.sessionId,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 3600, // 1 小时有效期
+      jti: uuidv4(),
+      sig: '', // 如果需要可以添加签名
+    };
 
- this.ws.on('close', (code, reason) => {
- console.log(`[MixinWS]WebSocket连接关闭: ${code} - ${reason}`);
- this.isConnected = false;
- this.emit('disconnected', { code, reason });
- this.handleReconnect();
- });
- }
+    // 使用私钥签名
+    const token = jwt.sign(payload, Buffer.from(this.privateKey, 'base64'), {
+      algorithm: 'RS512',
+    });
 
- /**
- *等待连接成功
- */
- waitForConnection() {
- return new Promise((resolve, reject) => {
- const timeout = setTimeout(() => {
- reject(new Error('连接超时'));
- },10000); //10秒超时
+    return token;
+  }
 
- this.ws.once('open', () => {
- clearTimeout(timeout);
- resolve();
- });
+  /**
+   * 设置 WebSocket 事件处理器
+   */
+  setupEventHandlers() {
+    this.ws.on('open', () => {
+      console.log('[MixinWS] WebSocket 连接已打开');
+      this.emit('connected');
+    });
 
- this.ws.once('error', (error) => {
- clearTimeout(timeout);
- reject(error);
- });
- });
- }
+    this.ws.on('message', (data) => {
+      this.handleMessage(data);
+    });
 
- /**
- *处理收到的消息
- */
- handleMessage(data) {
- try {
- const message = JSON.parse(data.toString());
+    this.ws.on('error', (error) => {
+      console.error('[MixinWS] WebSocket 错误:', error.message);
+      this.emit('error', error);
+    });
 
- console.log('[MixinWS]收到消息:', message.action || message.type);
+    this.ws.on('close', (code, reason) => {
+      console.log(`[MixinWS] WebSocket 连接关闭：${code} - ${reason}`);
+      this.isConnected = false;
+      this.isConnecting = false;
 
- switch (message.action || message.type) {
- case 'CREATE_MESSAGE':
- case 'MESSAGE':
- //收到聊天消息
- this.emit('message', message.data);
- break;
+      // 停止心跳
+      this.stopHeartbeat();
 
- case 'ACKNOWLEDGE_MESSAGE_RECEIPT':
- //消息已送达确认
- this.emit('messageReceipt', message.data);
- break;
+      this.emit('disconnected', { code, reason });
 
- case 'LIST_PENDING_MESSAGES':
- //离线消息列表
- this.handlePendingMessages(message.data);
- break;
+      // 只有在非主动断开时才重连
+      if (this.shouldReconnect) {
+        this.handleReconnect();
+      }
+    });
 
- case 'ERROR':
- //错误消息
- console.error('[MixinWS]服务器错误:', message.data);
- this.emit('error', new Error(message.data?.message || 'Unknown error'));
- break;
+    this.ws.on('pong', () => {
+      this.lastPongReceived = Date.now();
+    });
+  }
 
- default:
- console.log('[MixinWS]未知消息类型:', message.action || message.type);
- this.emit('unknown', message);
- }
+  /**
+   * 等待连接成功
+   */
+  waitForConnection() {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.isConnecting = false;
+        reject(new Error('连接超时'));
+      }, 10000); // 10 秒超时
 
- } catch (error) {
- console.error('[MixinWS]解析消息失败:', error.message);
- this.emit('error', error);
- }
- }
+      this.ws.once('open', () => {
+        clearTimeout(timeout);
+        resolve();
+      });
 
- /**
- *发送消息到Mixin
- */
- sendMessage(message) {
- if (!this.isConnected || !this.ws) {
- console.error('[MixinWS]未连接，无法发送消息');
- return false;
- }
+      this.ws.once('error', (error) => {
+        clearTimeout(timeout);
+        this.isConnecting = false;
+        reject(error);
+      });
+    });
+  }
 
- try {
- const messageStr = typeof message === 'string' ? message : JSON.stringify(message);
- this.ws.send(messageStr);
- return true;
- } catch (error) {
- console.error('[MixinWS]发送消息失败:', error.message);
- return false;
- }
- }
+  /**
+   * 处理收到的消息
+   */
+  handleMessage(data) {
+    try {
+      const message = JSON.parse(data.toString());
 
- /**
- *请求离线消息列表
- */
- listPendingMessages() {
- return this.sendMessage({
- action: 'LIST_PENDING_MESSAGES',
- });
- }
+      console.log('[MixinWS] 收到消息:', message.action || message.type);
 
- /**
- *处理离线消息
- */
- handlePendingMessages(messages) {
- if (!Array.isArray(messages) || messages.length ===0) {
- console.log('[MixinWS]没有离线消息');
- return;
- }
+      switch (message.action || message.type) {
+        case 'CREATE_MESSAGE':
+        case 'MESSAGE':
+          // 检查消息是否已处理（去重）
+          const msgId = message.data?.message_id || message.message_id;
+          if (msgId && !this.shouldProcessMessage(msgId)) {
+            console.log('[MixinWS] 跳过已处理的消息:', msgId);
+            return;
+          }
+          // 收到聊天消息
+          this.emit('message', message.data);
+          break;
 
- console.log(`[MixinWS]收到 ${messages.length}条离线消息`);
+        case 'ACKNOWLEDGE_MESSAGE_RECEIPT':
+          // 消息已送达确认
+          this.emit('messageReceipt', message.data);
+          break;
 
- messages.forEach((message, index) => {
- setTimeout(() => {
- this.emit('message', message);
- }, index *100); //100ms间隔，避免消息洪峰
- });
- }
+        case 'LIST_PENDING_MESSAGES':
+          // 离线消息列表
+          this.handlePendingMessages(message.data);
+          break;
 
- /**
- *确认消息已读
- */
- acknowledgeMessageReceipt(messageId) {
- return this.sendMessage({
- action: 'ACKNOWLEDGE_MESSAGE_RECEIPT',
- data: {
- message_id: messageId,
- status: 'READ',
- },
- });
- }
+        case 'ERROR':
+          // 错误消息
+          console.error('[MixinWS] 服务器错误:', message.data);
+          this.emit('error', new Error(message.data?.message || 'Unknown error'));
+          break;
 
- /**
- *处理重连
- */
- handleReconnect() {
- if (this.reconnectAttempts >= this.maxReconnectAttempts) {
- console.error(`[MixinWS]达到最大重连次数(${this.maxReconnectAttempts})，放弃重连`);
- this.emit('reconnectFailed');
- return;
- }
+        default:
+          console.log('[MixinWS] 未知消息类型:', message.action || message.type);
+          this.emit('unknown', message);
+      }
 
- this.reconnectAttempts++;
- const delay = Math.min(this.reconnectInterval * this.reconnectAttempts,60000); //最多60秒
+    } catch (error) {
+      console.error('[MixinWS] 解析消息失败:', error.message);
+      this.emit('error', error);
+    }
+  }
 
- console.log(`[MixinWS] ${delay}ms后尝试第${this.reconnectAttempts}次重连...`);
+  /**
+   * 消息去重检查
+   */
+  shouldProcessMessage(messageId) {
+    if (this.processedMessages.has(messageId)) {
+      return false;
+    }
+    this.processedMessages.add(messageId);
+    if (this.processedMessages.size > this.maxMessageCache) {
+      const first = this.processedMessages.values().next().value;
+      this.processedMessages.delete(first);
+    }
+    return true;
+  }
 
- setTimeout(() => {
- this.connect().catch(() => {
- //重连失败会继续触发close事件，然后再次重试
- });
- }, delay);
- }
+  /**
+   * 发送消息到 Mixin
+   */
+  sendMessage(message) {
+    if (!this.isConnected || !this.ws) {
+      console.error('[MixinWS] 未连接，无法发送消息');
+      return false;
+    }
 
- /**
- *断开连接
- */
- disconnect() {
- console.log('[MixinWS]主动断开连接');
+    try {
+      const messageStr = typeof message === 'string' ? message : JSON.stringify(message);
+      this.ws.send(messageStr);
+      return true;
+    } catch (error) {
+      console.error('[MixinWS] 发送消息失败:', error.message);
+      return false;
+    }
+  }
 
- if (this.ws) {
- this.ws.close();
- this.ws = null;
- }
+  /**
+   * 请求离线消息列表
+   */
+  listPendingMessages() {
+    return this.sendMessage({
+      action: 'LIST_PENDING_MESSAGES',
+    });
+  }
 
- this.isConnected = false;
- }
+  /**
+   * 处理离线消息
+   */
+  handlePendingMessages(messages) {
+    if (!Array.isArray(messages) || messages.length === 0) {
+      console.log('[MixinWS] 没有离线消息');
+      return;
+    }
 
- /**
- *获取连接状态
- */
- getStatus() {
- return {
- isConnected: this.isConnected,
- reconnectAttempts: this.reconnectAttempts,
- wsState: this.ws ? this.ws.readyState : null,
- };
- }
+    console.log(`[MixinWS] 收到 ${messages.length} 条离线消息`);
+
+    messages.forEach((message, index) => {
+      setTimeout(() => {
+        // 去重检查
+        const msgId = message.message_id;
+        if (msgId && !this.shouldProcessMessage(msgId)) {
+          return;
+        }
+        this.emit('message', message);
+      }, index * 100); // 100ms 间隔，避免消息洪峰
+    });
+  }
+
+  /**
+   * 确认消息已读
+   */
+  acknowledgeMessageReceipt(messageId) {
+    return this.sendMessage({
+      action: 'ACKNOWLEDGE_MESSAGE_RECEIPT',
+      data: {
+        message_id: messageId,
+        status: 'READ',
+      },
+    });
+  }
+
+  /**
+   * 启动心跳检测
+   */
+  startHeartbeat() {
+    this.stopHeartbeat(); // 先停止已有的心跳
+
+    this.heartbeatInterval = setInterval(() => {
+      if (this.isConnected && this.ws) {
+        // 发送 ping
+        this.ws.ping();
+
+        // 检查上次 pong 响应时间
+        if (this.lastPongReceived && Date.now() - this.lastPongReceived > this.heartbeatTimeout * 2) {
+          console.warn('[MixinWS] 心跳超时，可能连接已断开');
+          this.ws.terminate();
+        }
+      }
+    }, this.heartbeatTimeout);
+  }
+
+  /**
+   * 停止心跳检测
+   */
+  stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+  }
+
+  /**
+   * 处理重连（修复版：指数退避）
+   */
+  handleReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.error(`[MixinWS] 达到最大重连次数 (${this.maxReconnectAttempts})，放弃重连`);
+      this.emit('reconnectFailed');
+      return;
+    }
+
+    this.reconnectAttempts++;
+    // 指数退避：5s, 10s, 20s, 40s, 60s (上限)
+    const delay = Math.min(this.reconnectInterval * Math.pow(2, this.reconnectAttempts - 1), 60000);
+
+    console.log(`[MixinWS] ${delay}ms 后尝试第 ${this.reconnectAttempts} 次重连...`);
+
+    setTimeout(async () => {
+      if (!this.shouldReconnect) {
+        return;
+      }
+      try {
+        await this.connect();
+      } catch (error) {
+        // 错误已在 connect 中处理
+      }
+    }, delay);
+  }
+
+  /**
+   * 断开连接
+   */
+  disconnect() {
+    console.log('[MixinWS] 主动断开连接');
+
+    this.shouldReconnect = false; // 停止自动重连
+    this.stopHeartbeat();
+
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+
+    this.isConnected = false;
+    this.isConnecting = false;
+  }
+
+  /**
+   * 获取连接状态
+   */
+  getStatus() {
+    return {
+      isConnected: this.isConnected,
+      isConnecting: this.isConnecting,
+      reconnectAttempts: this.reconnectAttempts,
+      wsState: this.ws ? this.ws.readyState : null,
+      lastPongReceived: this.lastPongReceived,
+    };
+  }
 }
 
 module.exports = MixinWebSocketClient;
